@@ -20,7 +20,7 @@ impl Cleaner {
 
     pub fn clean(&self, results: &[ScanResult]) -> io::Result<()> {
         let mut total_freed = 0;
-        let mut total_files = 0;
+        let mut total_items = 0;
         let mut skipped_in_use = 0;
         let mut skipped_access_denied = 0;
 
@@ -39,7 +39,7 @@ impl Cleaner {
 
             if !self.auto_confirm {
                 print!(
-                    "Proceed with cleaning {} files ({})? [y/N]: ",
+                    "Proceed with cleaning {} items ({})? [y/N]: ",
                     res.files.len(),
                     human_bytes(res.total_size as f64)
                 );
@@ -54,16 +54,22 @@ impl Cleaner {
                 }
             }
 
-            for file in &res.files {
+            for item in &res.files {
                 if self.dry_run {
-                    println!("DRY RUN: Would delete {}", file.path.display());
-                    total_freed += file.size;
-                    total_files += 1;
+                    println!("DRY RUN: Would delete {}", item.path.display());
+                    total_freed += item.size;
+                    total_items += 1;
                 } else {
-                    match fs::remove_file(&file.path) {
+                    let res = if item.path.is_dir() {
+                        fs::remove_dir_all(&item.path)
+                    } else {
+                        fs::remove_file(&item.path)
+                    };
+
+                    match res {
                         Ok(_) => {
-                            total_freed += file.size;
-                            total_files += 1;
+                            total_freed += item.size;
+                            total_items += 1;
                         }
                         Err(e) => {
                             if let Some(code) = e.raw_os_error() {
@@ -75,7 +81,7 @@ impl Cleaner {
                                     eprintln!(
                                         "{} Failed to delete {}: {}",
                                         "Error:".red(),
-                                        file.path.display(),
+                                        item.path.display(),
                                         e
                                     );
                                 }
@@ -88,7 +94,7 @@ impl Cleaner {
 
         println!("\n{}", "Cleanup Summary".bold().green());
         println!("{:-<30}", "");
-        println!("Files deleted:      {}", total_files);
+        println!("Items deleted:      {}", total_items);
         println!(
             "Space freed:       {}",
             human_bytes(total_freed as f64).cyan()
@@ -98,17 +104,17 @@ impl Cleaner {
             println!("{:-<30}", "");
             if skipped_in_use > 0 {
                 println!(
-                    "Files skipped (In Use): {}",
+                    "Items skipped (In Use): {}",
                     skipped_in_use.to_string().yellow()
                 );
             }
             if skipped_access_denied > 0 {
                 println!(
-                    "Files skipped (Access Denied): {}",
+                    "Items skipped (Access Denied): {}",
                     skipped_access_denied.to_string().red()
                 );
                 println!(
-                    "{} Try running the terminal as Administrator to clean more files.",
+                    "{} Try running the terminal as Administrator to clean more items.",
                     "Tip:".blue()
                 );
             }

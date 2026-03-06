@@ -1,15 +1,16 @@
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::env;
+use std::fs;
 use std::path::{Path, PathBuf};
 
-#[derive(Debug, Clone, Serialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum SafetyLevel {
     Safe,    // No impact on system or user data
     Caution, // Useful for rollbacks or slightly slower app starts
     Warning, // May delete data some users expect to keep (e.g. Recycle Bin)
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[allow(dead_code)]
 pub struct CleanupRule {
     pub name: String,
@@ -17,9 +18,30 @@ pub struct CleanupRule {
     pub paths: Vec<PathBuf>,
     pub patterns: Vec<String>,
     pub safety_level: SafetyLevel,
+    pub recursive_search: Option<bool>, // If true, search for 'patterns' as folder names recursively
 }
 
 pub fn get_rules() -> Vec<CleanupRule> {
+    let mut rules = get_default_rules();
+
+    // Load custom rules from the 'rules' directory
+    if let Ok(entries) = fs::read_dir("rules") {
+        for entry in entries.filter_map(|e| e.ok()) {
+            if entry.path().extension().map_or(false, |ext| ext == "json") {
+                if let Ok(content) = fs::read_to_string(entry.path()) {
+                    if let Ok(mut custom_rules) = serde_json::from_str::<Vec<CleanupRule>>(&content)
+                    {
+                        rules.append(&mut custom_rules);
+                    }
+                }
+            }
+        }
+    }
+
+    rules
+}
+
+fn get_default_rules() -> Vec<CleanupRule> {
     let mut rules = Vec::new();
 
     // Windows Temp
@@ -29,16 +51,34 @@ pub fn get_rules() -> Vec<CleanupRule> {
         paths: vec![PathBuf::from(r"C:\Windows\Temp")],
         patterns: vec!["*".to_string()],
         safety_level: SafetyLevel::Safe,
+        recursive_search: Some(false),
     });
 
-    // User Temp
+    // User Temp (%TEMP%)
     if let Ok(temp) = env::var("TEMP") {
+        let temp_path = PathBuf::from(temp);
+        if temp_path.exists() {
+            rules.push(CleanupRule {
+                name: "User Temp".to_string(),
+                description: "User-specific temporary files".to_string(),
+                paths: vec![temp_path],
+                patterns: vec!["*".to_string()],
+                safety_level: SafetyLevel::Safe,
+                recursive_search: Some(false),
+            });
+        }
+    }
+
+    // Prefetch (Requires Admin)
+    let prefetch = PathBuf::from(r"C:\Windows\Prefetch");
+    if prefetch.exists() {
         rules.push(CleanupRule {
-            name: "User Temp".to_string(),
-            description: "User-specific temporary files".to_string(),
-            paths: vec![PathBuf::from(temp)],
+            name: "Prefetch".to_string(),
+            description: "Application launch cache and prefetch files".to_string(),
+            paths: vec![prefetch],
             patterns: vec!["*".to_string()],
-            safety_level: SafetyLevel::Safe,
+            safety_level: SafetyLevel::Warning,
+            recursive_search: Some(false),
         });
     }
 
@@ -49,6 +89,7 @@ pub fn get_rules() -> Vec<CleanupRule> {
         paths: vec![PathBuf::from(r"C:\Windows\SoftwareDistribution\Download")],
         patterns: vec!["*".to_string()],
         safety_level: SafetyLevel::Caution,
+        recursive_search: Some(false),
     });
 
     // Delivery Optimization
@@ -58,6 +99,7 @@ pub fn get_rules() -> Vec<CleanupRule> {
         paths: vec![PathBuf::from(r"C:\Windows\ServiceProfiles\NetworkService\AppData\Local\Microsoft\Windows\DeliveryOptimization\Cache")],
         patterns: vec!["*".to_string()],
         safety_level: SafetyLevel::Caution,
+        recursive_search: Some(false),
     });
 
     // Recycle Bin
@@ -67,6 +109,7 @@ pub fn get_rules() -> Vec<CleanupRule> {
         paths: vec![PathBuf::from(r"C:\$Recycle.Bin")],
         patterns: vec!["*".to_string()],
         safety_level: SafetyLevel::Warning,
+        recursive_search: Some(false),
     });
 
     // Browser Caches
@@ -81,6 +124,7 @@ pub fn get_rules() -> Vec<CleanupRule> {
                 paths: vec![edge_cache],
                 patterns: vec!["*".to_string()],
                 safety_level: SafetyLevel::Safe,
+                recursive_search: Some(false),
             });
         }
 
@@ -93,6 +137,7 @@ pub fn get_rules() -> Vec<CleanupRule> {
                 paths: vec![chrome_cache],
                 patterns: vec!["*".to_string()],
                 safety_level: SafetyLevel::Safe,
+                recursive_search: Some(false),
             });
         }
 
@@ -105,6 +150,7 @@ pub fn get_rules() -> Vec<CleanupRule> {
                 paths: vec![thumb_cache],
                 patterns: vec!["thumbcache_*.db".to_string()],
                 safety_level: SafetyLevel::Caution,
+                recursive_search: Some(false),
             });
         }
     }
@@ -120,6 +166,7 @@ pub fn get_rules() -> Vec<CleanupRule> {
             "*.cab".to_string(),
         ],
         safety_level: SafetyLevel::Safe,
+        recursive_search: Some(false),
     });
 
     // Crash Dumps & Mini Dumps
@@ -132,30 +179,28 @@ pub fn get_rules() -> Vec<CleanupRule> {
         ],
         patterns: vec!["*".to_string()],
         safety_level: SafetyLevel::Warning,
+        recursive_search: Some(false),
     });
 
-    // Prefetch (Requires Admin)
+    // Windows.old (Leftover from updates)
     rules.push(CleanupRule {
-        name: "Prefetch".to_string(),
-        description: "Application launch cache".to_string(),
-        paths: vec![PathBuf::from(r"C:\Windows\Prefetch")],
+        name: "Windows.old".to_string(),
+        description: "Backups of previous Windows installations".to_string(),
+        paths: vec![PathBuf::from(r"C:\Windows.old")],
+        patterns: vec!["*".to_string()],
+        safety_level: SafetyLevel::Caution,
+        recursive_search: Some(false),
+    });
+
+    // System Error Memory Dumps
+    rules.push(CleanupRule {
+        name: "System Memory Dumps".to_string(),
+        description: "Memory dump files from system crashes".to_string(),
+        paths: vec![PathBuf::from(r"C:\Windows\MEMORY.DMP")],
         patterns: vec!["*".to_string()],
         safety_level: SafetyLevel::Warning,
+        recursive_search: Some(false),
     });
-
-    // Application specific caches (Spotify example)
-    if !local_appdata.is_empty() {
-        let spotify_cache = Path::new(&local_appdata).join(r"Spotify\Storage");
-        if spotify_cache.exists() {
-            rules.push(CleanupRule {
-                name: "Spotify Cache".to_string(),
-                description: "Cached music and data for Spotify".to_string(),
-                paths: vec![spotify_cache],
-                patterns: vec!["*".to_string()],
-                safety_level: SafetyLevel::Safe,
-            });
-        }
-    }
 
     rules
 }

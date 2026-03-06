@@ -1,70 +1,88 @@
-# Windows Cleanup CLI (DiskCleaner)
+# WinNative-Cleanup V2 (Advanced Edition) 🚀
 
-A fast, safe, and aggressive Windows command-line utility designed to reclaim disk space on your C: drive without reinstalling Windows.
+A high-performance, premium Windows optimization suite built in Rust. WinNative-Cleanup V2 goes beyond simple temporary file deletion, offering advanced deduplication, system optimization, and an interactive TUI dashboard.
 
-## 🚀 Features
+![v2_dashboard](https://via.placeholder.com/800x450.png?text=WinNative-Cleanup+V2+Interactive+Dashboard)
 
-- **Multi-threaded Scanning**: Lightning fast scanning using Rust's Rayon library.
-- **Aggressive Deep Scan**: Targets obscure system caches, delivery optimization files, thumbnail databases, and the Recycle Bin.
-- **Large File Analysis**: Scans your entire drive to identify the top space-consuming files (>100MB), helping you find hidden bloat.
-- **Risk Assessment System**: Every cleaning rule is categorized by safety level:
-    - ✅ **Safe to Delete**: Temporary files and logs that are safe for everyone.
-    - ⚠️ **Caution**: System caches that might slightly affect app startup speed or update rollbacks.
-    - 🛑 **Warning**: Files like the Recycle Bin or Prefetch that require user verification.
-- **Safe by Design**: Uses a strict whitelist approach to ensure critical system files are never touched.
-- **Noisy Log Suppression**: Gracefully handles files currently in use or protected by the system, providing a clean summary instead of terminal noise.
+## 🌟 New in V2
 
-## 🛠 Installation
+- **Interactive Dashboard (TUI)**: A full-screen graphical terminal interface to navigate, select, and clean your drive.
+- **Deep Deduplication**: Identify identical files across your system using SHA256 hashing.
+- **Developer Packs**: Recursive scanning for `node_modules`, Rust `target` folders, and build artifacts.
+- **System Optimization**: Safe removal of `Windows.old`, kernel memory dumps, and Windows Update leftovers.
+- **Plugin System**: Load custom cleanup rules from external JSON files in the `rules/` directory.
+- **Automated Scheduling**: One-click integration with Windows Task Scheduler for weekly maintenance.
+
+## 🚀 Getting Started
 
 ### Prerequisites
-- [Rust](https://www.rust-lang.org/tools/install) (latest stable version)
+- Windows 10/11
+- Administrator privileges (highly recommended for system-level cleaning)
 
-### Build from source
+### Installation
+Download the latest release from the [Releases](https://github.com/tariqrafiq70/WinNative-Cleanup/releases) page or build from source:
+
 ```powershell
-git clone https://github.com/yourusername/Windows-Cleanup-Cli.git
-cd Windows-Cleanup-Cli
+git clone https://github.com/tariqrafiq70/WinNative-Cleanup.git
+cd WinNative-Cleanup
 cargo build --release
 ```
-The executable will be located at `target/release/windows-cleanup-cli.exe`.
 
-## 📖 Usage
+### Usage
 
-> [!IMPORTANT]
-> Some operations require Administrator privileges to access system logs and the Recycle Bin. Run your terminal as Admin for the best results.
-
-### 1. Basic Scan
-Quickly identify common temporary files.
+#### 🏁 Quick Scan
+Perform a standard scan and choose to open the dashboard or clean directly.
 ```powershell
 .\windows-cleanup-cli.exe scan
 ```
 
-### 2. Deep Scan (Aggressive)
-Find significantly more space by targeting hidden system caches.
+#### 📊 Interactive Dashboard
+Launch the premium TUI to browse and select specific cleanup categories.
 ```powershell
-.\windows-cleanup-cli.exe deep-scan
+.\windows-cleanup-cli.exe dashboard
+```
+- **Arrows**: Navigate list
+- **Space**: Select/Deselect category
+- **C**: Clean selected items
+- **Q**: Quit
+
+#### 👯 Find Duplicates
+Find identical files larger than 50MB.
+```powershell
+.\windows-cleanup-cli.exe dedupe --min-size 50
 ```
 
-### 3. Analyze Drive
-Find the largest files taking up space on your C: drive.
+#### 🛠 System Optimization
+Target deep-level Windows components like `Windows.old`.
 ```powershell
-# Show top 20 large files
-.\windows-cleanup-cli.exe analyze
-
-# Export full report to a text file
-.\windows-cleanup-cli.exe analyze --output report.txt
+.\windows-cleanup-cli.exe optimize
 ```
 
-### 4. Clean Disk
-Safely delete the discovered files with risk-level confirmation.
+#### 📅 Automation
+Schedule a safe, automated cleanup every Sunday at 11 PM.
 ```powershell
-.\windows-cleanup-cli.exe clean
-
-# Automatically confirm all prompt
-.\windows-cleanup-cli.exe clean --auto
+.\windows-cleanup-cli.exe schedule
 ```
 
-## 🛡 Security & Safety
-DiskCleaner only interacts with specific, whitelisted directories. It does not perform "black magic" on your registry or critical system components. It is designed to be a transparent and reliable alternative to built-in Windows cleanup tools.
+## 🛡 Safety Levels
 
-## 📄 License
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+Every cleanup rule is categorized by risk:
+- 🟢 **Safe**: No impact on system stability or user data.
+- 🟡 **Caution**: May slightly slow down app restarts or remove rollback points.
+- 🔴 **Warning**: Deletes data users may expect to keep (e.g., Recycle Bin).
+
+## 🧩 Custom Rules
+Create a `.json` file in the `rules/` folder to add your own paths:
+```json
+[
+  {
+    "name": "Custom Cache",
+    "paths": ["C:\\MyApp\\Temp"],
+    "patterns": ["*.log"],
+    "safety_level": "Safe"
+  }
+]
+```
+
+## 📜 License
+MIT License. Built with ❤️ using Rust.
