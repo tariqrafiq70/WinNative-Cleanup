@@ -1,0 +1,13 @@
+# Rust
+/target
+Cargo.lock
+
+# IDEs
+.vscode/
+.idea/
+
+# Reports & Logs
+*.txt
+*.json
+build_error.txt
+large_files_report.txt
